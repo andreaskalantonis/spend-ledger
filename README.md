@@ -2,7 +2,14 @@
 
 Spend Ledger turns bank and credit card statements into a clear picture of where money goes, supplier by supplier and month by month. You upload the PDF or CSV statements your bank already gives you. It reads every transaction and checks it against the bank's own running balance. It then works out who you paid and what kind of spending it was, and builds a history you can plan against.
 
-**Try it:** https://andreaskalantonis.github.io/spend-ledger/
+## Try it
+
+Open the app at https://andreaskalantonis.github.io/spend-ledger/. You do not need your own statements:
+
+- **Load sample data:** one click loads nine months of fictional transactions, January to September 2026, so you can explore every feature. A banner marks it as sample data, and *Clear sample data* empties the app again.
+- **Test the import:** download the [sample Revolut CSV](sample/sample-revolut-statement.csv) from the start screen and drop it into the app to see a statement being read and checked. If sample data is loaded at the time, the app clears it first, so sample and real transactions never mix.
+
+Both sample files are invented and contain no real personal data.
 
 ## What it does
 

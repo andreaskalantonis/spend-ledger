@@ -492,6 +492,14 @@ table.csv-table tbody tr { cursor: default; }
 .foot-notes h2 { margin: 0 0 6px; }
 .foot-notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; line-height: 1.5; max-width: 80ch; }
 .foot-notes b { color: var(--ink); font-weight: 600; }
+.sample-cta { flex-direction: row; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.sample-cta h2 { margin: 0 0 4px; }
+.sample-cta .note { margin: 0; max-width: 60ch; }
+.sample-link { margin: 10px 0 18px; font-size: .88rem; color: var(--muted); }
+.sample-link a { color: var(--accent); font-weight: 500; }
+.sample-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 18px; border: 1px solid var(--accent); border-left-width: 4px; border-radius: 10px; background: var(--surface); }
+.sample-banner p { margin: 0; font-size: .9rem; max-width: 75ch; }
+.sample-banner .sb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .footer { font-size: .78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -1402,6 +1410,7 @@ table.csv-table tbody tr { cursor: default; }
   if (typeof module !== 'undefined' && module.exports) module.exports = SL;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
+<script>window.SL_PUBLIC = true;</script>
 <script>(function () {
   'use strict';
   var SL = window.SL;
@@ -1413,6 +1422,9 @@ table.csv-table tbody tr { cursor: default; }
   if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   /* ---------------- storage ---------------- */
+  // The public (GitHub Pages) build sets window.SL_PUBLIC: it offers fictional sample data and keeps it apart from real imports.
+  var PUBLIC = !!window.SL_PUBLIC;
+  var SAMPLE_JSON = 'sample/spend-ledger-sample.json', SAMPLE_CSV = 'sample/sample-revolut-statement.csv';
   function emptyStore() { return { version: 1, transactions: [], statements: [], overrides: { names: {}, categories: {} } }; }
   function validStore(s) { return s && s.version === 1 && Array.isArray(s.transactions) && Array.isArray(s.statements); }
   function loadStore() {
@@ -2417,8 +2429,14 @@ table.csv-table tbody tr { cursor: default; }
 
   function renderBanner() {
     var html = '';
-    if (state.mode === 'empty') {
-      html = '<label class="drop" id="drop" for="fileInput"><span class="icon" aria-hidden="true">PDF</span><span><p><strong>Drop bank statements here</strong> or choose files</p><small>PDF statements from Revolut (monthly and multi-currency) and American Express, or CSV exports from Revolut, Monzo, Amex and most other banks. You can add several at once.</small></span><span class="btn primary">Choose files</span></label>' +
+    if (PUBLIC && state.store.sample && state.mode !== 'empty') {
+      html = state.pendingFiles
+        ? '<div class="sample-banner confirm" id="sampleConfirm" role="alertdialog" aria-labelledby="sampleConfirmText"><p id="sampleConfirmText"><strong>Clear the sample data first?</strong> Importing your own statement removes the fictional sample, so your real transactions never mix with it.</p><div class="sb-actions"><button class="btn primary" type="button" data-act="samplego">Clear sample and import</button><button class="btn" type="button" data-act="samplecancel">Cancel</button></div></div>'
+        : '<div class="sample-banner" role="status"><p><strong>You are looking at fictional sample data.</strong> Every transaction, supplier and amount here is invented. Clear it to start with your own statements.</p><div class="sb-actions"><button class="btn" type="button" data-act="clearsample">Clear sample data</button></div></div>';
+    } else if (state.mode === 'empty') {
+      var sampleCta = PUBLIC ? '<section class="panel sample-cta"><div><h2>Try it with sample data</h2><p class="note">Load nine months of fictional transactions, January to September 2026, and explore every feature without uploading anything of your own.</p></div><button class="btn primary" type="button" data-act="loadsample">Load sample data</button></section>' : '';
+      html = sampleCta + '<label class="drop" id="drop" for="fileInput"><span class="icon" aria-hidden="true">PDF</span><span><p><strong>Drop bank statements here</strong> or choose files</p><small>PDF statements from Revolut (monthly and multi-currency) and American Express, or CSV exports from Revolut, Monzo, Amex and most other banks. You can add several at once.</small></span><span class="btn' + (PUBLIC ? '' : ' primary') + '">Choose files</span></label>' +
+        (PUBLIC ? '<p class="sample-link">No statement to hand? <a href="' + SAMPLE_CSV + '" download>Download a sample Revolut CSV</a> and drop it above to test the import.</p>' : '') +
         '<section class="panel empty-state"><h2>Your ledger is empty</h2><p class="note">Import your statements to see monthly spending, a register of every supplier you pay, and the original PDFs to reopen whenever you need them. Everything stays in this browser.</p></section>';
     }
     $('banner').innerHTML = html;
@@ -3090,6 +3108,13 @@ table.csv-table tbody tr { cursor: default; }
   }
 
   function importFiles(fileList) {
+    if (PUBLIC && state.store.sample && fileList && fileList.length) {
+      // Never mix real statements with the fictional sample: ask to clear it first.
+      state.pendingFiles = Array.prototype.slice.call(fileList);
+      renderBanner();
+      var c = $('sampleConfirm'); if (c) { c.scrollIntoView({ block: 'nearest' }); c.querySelector('button').focus(); }
+      return;
+    }
     var files = Array.prototype.filter.call(fileList || [], function (f) { return /\.(pdf|csv)$/i.test(f.name) || f.type === 'application/pdf' || f.type === 'text/csv'; });
     if (!files.length) { toast('Choose PDF or CSV files. This version reads Revolut, American Express and Monzo statements, and most bank CSV exports.', 'error'); return; }
     if (files.some(function (f) { return !/\.csv$/i.test(f.name) && f.type !== 'text/csv'; }) && !window.pdfjsLib) { toast('The PDF reader did not load. Check your connection and reload the page.', 'error'); return; }
@@ -3149,6 +3174,32 @@ table.csv-table tbody tr { cursor: default; }
     state.store = s; state.mode = s.transactions.length ? 'mine' : 'empty'; state.month = null; state.dataOpen = false;
     saveStore(); render();
     toast('Restored ' + s.transactions.length + ' transactions.');
+  }
+
+  /* ---------------- sample data (public build only) ---------------- */
+  function loadSample() {
+    if (state.loadingSample) return;
+    state.loadingSample = true;
+    fetch(SAMPLE_JSON, { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (s) {
+        if (!validStore(s)) throw new Error('not a backup');
+        s.overrides = s.overrides || { names: {}, categories: {} };
+        s.sample = true;
+        state.store = s; state.mode = 'mine'; state.month = null; state.year = null; state.sheet = null; state.dataOpen = false; state.pendingFiles = null;
+        saveStore(); render(); window.scrollTo(0, 0);
+        toast('Loaded ' + s.transactions.length + ' fictional transactions, January to September 2026.');
+      })
+      .catch(function () {
+        toast('The sample data loads on the live site (andreaskalantonis.github.io/spend-ledger). It cannot load when this page is opened as a file on your computer.', 'error');
+      })
+      .then(function () { state.loadingSample = false; });
+  }
+  function clearSample(quiet) {
+    state.store = emptyStore(); try { localStorage.removeItem(STORE_KEY); } catch (er) { }
+    state.mode = 'empty'; state.month = null; state.year = null; state.sheet = null; state.dataOpen = false; state.confirmClear = false; state.pendingFiles = null;
+    render();
+    if (!quiet) { toast('Sample data cleared. Your ledger is empty.'); window.scrollTo(0, 0); }
   }
 
   /* ---------------- toasts ---------------- */
@@ -3217,6 +3268,10 @@ table.csv-table tbody tr { cursor: default; }
       else if (a === 'askclear') { state.confirmClear = true; renderDataPanel(); }
       else if (a === 'cancelclear') { state.confirmClear = false; renderDataPanel(); }
       else if (a === 'clear') { state.store = emptyStore(); try { localStorage.removeItem(STORE_KEY); } catch (er) { } FILES.clear().catch(function () { }); state.files = {}; state.mode = 'empty'; state.month = null; state.confirmClear = false; state.dataOpen = false; render(); toast('Your ledger was deleted from this browser.'); }
+      else if (a === 'loadsample') loadSample();
+      else if (a === 'clearsample') clearSample();
+      else if (a === 'samplecancel') { state.pendingFiles = null; renderBanner(); }
+      else if (a === 'samplego') { var pf = state.pendingFiles; clearSample(true); importFiles(pf); }
       else if (a === 'copybackup') {
         var txt = backupText(), box = $('backupText');
         var fallback = function () { box.value = txt; box.focus(); box.select(); toast('Backup is in the box below. Copy it with your keyboard.'); };
@@ -3287,7 +3342,7 @@ table.csv-table tbody tr { cursor: default; }
   /* ---------------- preloaded statements (personal build only) ---------------- */
   function b64ToBuf(b64) { var bin = atob(b64), n = bin.length, u = new Uint8Array(n); for (var i = 0; i < n; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
   function applySeed() {
-    var SEED = window.SPEND_SEED;
+    var SEED = null;
     if (!SEED) return Promise.resolve();
     var applied = [];
     try { applied = JSON.parse(localStorage.getItem(STORE_KEY + ':seeded') || '[]'); } catch (e) { }
